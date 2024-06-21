@@ -13,5 +13,5 @@ POST http://localhost:8080/event/1/reserve
 Content-Type: application/json
 
 {
-  "spot": "A1" 
+  "spots": ["A2"]
 }

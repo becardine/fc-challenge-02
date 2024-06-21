@@ -127,7 +127,7 @@ func reserveSpotHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var requestBody struct {
-		Spot string `json:"spot"`
+		Spots []string `json:"spots"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&requestBody); err != nil {
@@ -135,36 +135,38 @@ func reserveSpotHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spotFound := false
-	var spotToUpdate Spot
-	for i, spot := range data.Spots {
-		if spot.EventID == eventID && spot.Name == requestBody.Spot {
-			spotFound = true
-			spotToUpdate = data.Spots[i]
-			break
+	for _, spotName := range requestBody.Spots {
+		spotFound := false
+		var spotToUpdate Spot
+		for i, spot := range data.Spots {
+			if spot.EventID == eventID && spot.Name == spotName {
+				spotFound = true
+				spotToUpdate = data.Spots[i]
+				break
+			}
+		}
+
+		if !spotFound {
+			http.Error(w, fmt.Sprintf("Spot '%s' not found", spotName), http.StatusBadRequest)
+			return
+		}
+
+		if spotToUpdate.Status == "reserved" {
+			http.Error(w, fmt.Sprintf("Spot '%s' is already reserved", spotName), http.StatusBadRequest)
+			return
+		}
+
+		spotToUpdate.Status = "reserved"
+
+		for i, spot := range data.Spots {
+			if spot.EventID == eventID && spot.Name == spotName {
+				data.Spots[i] = spotToUpdate
+				break
+			}
 		}
 	}
 
-	if !spotFound {
-		http.Error(w, "Spot not found", http.StatusBadRequest)
-		return
-	}
-
-	if spotToUpdate.Status == "reserved" {
-		http.Error(w, "Spot is already reserved", http.StatusBadRequest)
-		return
-	}
-
-	spotToUpdate.Status = "reserved"
-
-	for i, spot := range data.Spots {
-		if spot.EventID == eventID && spot.Name == requestBody.Spot {
-			data.Spots[i] = spotToUpdate
-			break
-		}
-	}
-
-	response := map[string]string{"message": "Spot reserved successfully"}
+	response := map[string]string{"message": "Spots reserved successfully"}
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "Error encoding reservation response to JSON", http.StatusInternalServerError)
